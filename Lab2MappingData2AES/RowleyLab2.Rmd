@@ -1,0 +1,108 @@
+---
+title: "RowleyLab2"
+author: "Brock Rowley"
+date: "1/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(RColorBrewer)
+library(maptools)
+library(ggplot2)
+library(rworldmap)
+library(tidyverse)
+library(forcats)
+```
+
+```{r LoadData}
+df <- rio::import(
+"https://github.com/fivethirtyeight/data/raw/master/alcohol-consumption/drinks.csv")
+```
+
+```{r}
+consume_hist <- ggplot(df,
+                       aes(total_litres_of_pure_alcohol)
+                       ) +
+  geom_histogram(fill = "#56B4E9",
+                 color = "white",
+                 alpha = 0.9,
+                 bins = 15)
+consume_hist
+```
+
+```{r}
+consume_dens <- ggplot(df,
+                       aes(total_litres_of_pure_alcohol)
+                       ) +
+  geom_density(fill = "#56B4E9",
+               bw = 1)
+consume_dens
+```
+
+```{r}
+df2 <- df %>%
+  pivot_longer(
+    cols = ends_with("_servings"),
+    names_to = "type",
+    values_to = "servings")
+
+alcohol_dr <- ggplot(df2,
+                     aes(servings,
+                         type)
+                     ) +
+  ggridges::geom_density_ridges(fill = "#56B4E9") +
+  theme_minimal()
+alcohol_dr
+```
+
+```{r}
+alcohol_od <- ggplot(df2, aes(servings)) +
+  geom_density(aes(fill = type),
+               color = "black",
+               alpha = 0.5) +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+alcohol_od
+```
+
+```{r}
+alcohol_wrap <- ggplot(df2, aes(servings)) +
+  geom_histogram(aes(fill = type),
+                 alpha = 0.9,
+                 bins = 10) +
+  facet_wrap(~type) +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+alcohol_wrap
+```
+
+```{r}
+df3 <- df2 %>%
+  arrange(desc(total_litres_of_pure_alcohol)) %>%
+  slice(1:75) %>%
+  group_by(country) %>%
+  mutate(total_servings = sum(servings),
+         percent_servings = servings / total_servings)
+
+stack <- ggplot(df3, aes(country, percent_servings)) +
+  geom_col(aes(fill = type), alpha = .9) +
+  scale_fill_brewer(palette = "Paired",
+                    name = "Alcohol Type",
+                    breaks = c("wine_servings",
+                               "spirit_servings",
+                               "beer_servings"),
+                    labels = c("Wine",
+                               "Spirits",
+                               "Beer")) +
+  coord_flip() +
+scale_y_continuous(expand = c(0, 0)) +
+  labs(y = "Proportion of total alcohol consumed",
+       x = NULL,
+       title = "Alcohol consumption by type",
+       subtitle = "Top 25 countries displayed (according to total liters consumed)") +
+  theme_minimal(base_size = 20) +
+  theme(plot.title.position = "plot",
+        legend.position = "bottom")
+stack
+```
