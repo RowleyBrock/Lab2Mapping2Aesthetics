@@ -1,18 +1,16 @@
 ---
 title: "RowleyLab2"
 author: "Brock Rowley"
-date: "1/15/2020"
+date: "1/20/2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE, message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(RColorBrewer)
-library(maptools)
 library(ggplot2)
-library(rworldmap)
 library(tidyverse)
-library(forcats)
+library(ggridges)
+library(RColorBrewer)
 ```
 
 ```{r LoadData}
@@ -20,89 +18,162 @@ df <- rio::import(
 "https://github.com/fivethirtyeight/data/raw/master/alcohol-consumption/drinks.csv")
 ```
 
-```{r}
-consume_hist <- ggplot(df,
-                       aes(total_litres_of_pure_alcohol)
-                       ) +
-  geom_histogram(fill = "#56B4E9",
-                 color = "white",
-                 alpha = 0.9,
-                 bins = 15)
+```{r AlcoholHistogram, fig.width = 12, fig.height = 8}
+consume_hist <- ggplot(
+  df,
+  aes(
+    total_litres_of_pure_alcohol)
+  ) +
+  geom_histogram(
+    fill = "#56B4E9",
+    color = "white",
+    alpha = 0.9,
+    bins = 15) + # bins = 5, bins = 25
+  labs(x = "Total litres of pure alcohol",
+       y = "Count") +
+  theme_minimal()
 consume_hist
 ```
+At bins = 5, the bin width was too large, smaller features in the distribution
+of the data disappear. At bins = 25, the bin width is too small, the histogram
+became overly peaky and visually busy and the main trend in the data was
+obscured.  
 
-```{r}
-consume_dens <- ggplot(df,
-                       aes(total_litres_of_pure_alcohol)
-                       ) +
-  geom_density(fill = "#56B4E9",
-               bw = 1)
+```{r AlcoholDensity, fig.width = 12, fig.height = 8}
+consume_dens <- ggplot(
+  df,
+  aes(total_litres_of_pure_alcohol)
+  ) +
+  geom_density(
+    fill = "#56B4E9",
+    bw = 1) + # bw = .5, bw = 1.5
+  labs(x = "Total litres of pure alcohol",
+       y = "Density") +
+  theme_minimal()
 consume_dens
 ```
+At bw = .5, the bandwidth is too large, the smaller features in the distribution
+of the data disappear. At bw = 1.5, the bandwidth is too small, the density
+estimate became overly peaky and visually busy and the main trends in the data
+were obscured.  
 
-```{r}
+```{r TypeServings}
 df2 <- df %>%
   pivot_longer(
     cols = ends_with("_servings"),
     names_to = "type",
     values_to = "servings")
+```
 
-alcohol_dr <- ggplot(df2,
-                     aes(servings,
-                         type)
-                     ) +
-  ggridges::geom_density_ridges(fill = "#56B4E9") +
+```{r AlcoholRidges, message = FALSE, fig.width = 12, fig.height = 8}
+alcohol_dr <- ggplot(
+  df2,
+  aes(
+    servings,
+    type,
+    height = ..density..)
+  ) +
+  # coord_cartesian(xlim = c(1, 400)) +
+  geom_density_ridges_gradient(
+    scale = 1,
+    fill = "#56B4E9",
+    stat = "density",
+    trim = TRUE) +
+  labs(
+    x = "Total number of servings",
+    y = "Types of alcohol") +
   theme_minimal()
 alcohol_dr
 ```
 
-```{r}
-alcohol_od <- ggplot(df2, aes(servings)) +
-  geom_density(aes(fill = type),
-               color = "black",
-               alpha = 0.5) +
+```{r DensityServingsType, fig.width = 12, fig.height = 8}
+alcohol_od <- ggplot(
+  df2,
+  aes(servings)
+  ) +
+  geom_density(
+    aes(
+    fill = type),
+    color = "black",
+    alpha = 0.5) +
   scale_fill_brewer(palette = "Set1") +
   theme_minimal()
 alcohol_od
 ```
 
-```{r}
-alcohol_wrap <- ggplot(df2, aes(servings)) +
-  geom_histogram(aes(fill = type),
-                 alpha = 0.9,
-                 bins = 10) +
-  facet_wrap(~type) +
+```{r WrapServingsType, fig.width = 12, fig.height = 8}
+alcohol_wrap <- ggplot(
+  df2,
+  aes(servings)
+  ) +
+  geom_histogram(
+    aes(
+      fill = type),
+      alpha = 0.9,
+      bins = 10) + # bins = 5, bins = 15
   scale_fill_brewer(palette = "Set1") +
+  facet_wrap(~type) +
   theme_minimal()
 alcohol_wrap
 ```
+Double coding the density ridges graph by adding individual colors to the
+servings may have provided similar information (visually) as the facet wrap
+graphic. I found I needed to work the xlim (trim) for the density ridges graph
+because the x-axis extended to -100. My density ridges output seemed to be
+communicating negative servings.  
+The facet wrap visualization provides an intuitive and highly interpretable
+visualization of the drinks data. We clearly see that wine servings outpace
+other drink types, in the initial servings count. However, the scale_fill_brewer
+is not working as advertised.  
+Even though I admit to having limited data interpretation skills, and after
+trying several color pallets, density ridges continues to be the most difficult
+to interpret for me. This particular density ridges visualization appears (in my
+opinion) to have four variables represented.  
 
-```{r}
+```{r ConsumptionType, fig.width = 12, fig.height = 8}
 df3 <- df2 %>%
-  arrange(desc(total_litres_of_pure_alcohol)) %>%
+  arrange(
+    desc(total_litres_of_pure_alcohol)
+    ) %>%
   slice(1:75) %>%
   group_by(country) %>%
-  mutate(total_servings = sum(servings),
-         percent_servings = servings / total_servings)
+  mutate(
+    total_servings = sum(servings),
+    percent_servings = servings / total_servings)
 
-stack <- ggplot(df3, aes(country, percent_servings)) +
-  geom_col(aes(fill = type), alpha = .9) +
-  scale_fill_brewer(palette = "Paired",
-                    name = "Alcohol Type",
-                    breaks = c("wine_servings",
-                               "spirit_servings",
-                               "beer_servings"),
-                    labels = c("Wine",
-                               "Spirits",
-                               "Beer")) +
+stack <- ggplot(
+  df3,
+  aes(
+    country,
+    percent_servings)
+  ) +
+  geom_col(
+    aes(
+      fill = type),
+      alpha = .9) +
+  scale_fill_brewer(
+    palette = "Paired",
+    name = "Alcohol Type",
+    breaks = c(
+      "wine_servings",
+      "spirit_servings",
+      "beer_servings"),
+    labels = c("Wine",
+               "Spirits",
+               "Beer")
+    ) +
   coord_flip() +
-scale_y_continuous(expand = c(0, 0)) +
-  labs(y = "Proportion of total alcohol consumed",
-       x = NULL,
-       title = "Alcohol consumption by type",
-       subtitle = "Top 25 countries displayed (according to total liters consumed)") +
-  theme_minimal(base_size = 20) +
-  theme(plot.title.position = "plot",
-        legend.position = "bottom")
+scale_y_continuous(
+  expand = c(0, 0)) +
+  labs(
+    y = "Proportion of total alcohol consumed",
+    x = NULL,
+    title = "Alcohol consumption by type",
+    subtitle = "Top 25 countries displayed (according to total liters consumed)") +
+  theme_minimal(
+    base_size = 20) +
+  theme(
+    plot.title.position = "plot",
+    legend.position = "bottom")
 stack
 ```
